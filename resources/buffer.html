@@ -95,6 +95,8 @@ function toggleWrap(){
 </script>
 
 <script>
+    var buffer = false;
+
 function updateConsole (txt){
   console.insert(txt+"\r\n");
   //document.getElementById("console").innerHTML += "<br>"+txt;
@@ -120,12 +122,15 @@ function emptyline(buff){
 }
 
 function evalRepl (buff) {
+ if (buffer){
+
   var txt = buff.session.getTextRange(buff.getSelectionRange());
 //alert(emptyline(buff) + ";"+buff.getSelectionRange());
   if (txt){
     updateConsole("=> "+txt);
-    socket.send(JSON.stringify({"repl":txt}));
+    socket.send(JSON.stringify({"repl":{"eval":txt,"buffer":buffer}}));
   }
+ }
 }
 
 function Complete(f){
@@ -137,7 +142,7 @@ function Complete(f){
 }
 
    
-    var jconsole = {"buffer": {"open": "C:/awesome/place/file.clj"}}; //{"open": "buff5308"}};
+    var jconsole = {"buffer": {"open": ""}}; //{"open": "buff5308"}};
     var socket = new WebSocket("ws://localhost");
     socket.onopen = function(){
       updateConsole("@ws:"+JSON.stringify(jconsole));
@@ -155,6 +160,9 @@ function Complete(f){
         }
         if (jd.console){
             updateConsole(jd.console);
+        }
+        if (jd.buffer){
+          buffer = jd.buffer;
         }
         if ((jd.completions) && (jd.completions != "nil")) {
           updateConsole(" * "+jd.completions+" * ");

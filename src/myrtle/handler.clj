@@ -20,13 +20,13 @@
 (defn repl-buffer [b]
    (load-string b))
 
-(defn nrepl-buffer [b]
-  (try
-    (with-open [conn (nrepl/connect :port 7888)]
+(defn nrepl-buffer [b conn]
+  ;(try
+   ; (with-open [conn (nrepl/connect :port 7888)]
      (-> (nrepl/client conn 1000)
        (nrepl/message {:op :eval :code b})
        doall))
-    (catch Exception e (.getMessage e))))
+    ;(catch Exception e (.getMessage e))))
 
 (defn get-buffer [bid]
   (let [b (bid @buffers)]
@@ -55,7 +55,7 @@
                 (if-let [b ((keyword (:open buff)) @buffers)]
                   (send! channel (json/write-str {:console (str "opening buffer " b)}))
                   (send! channel (json/write-str {:console (str "opening file as buffer " buff)})))
-                (send! channel (json/write-str {:console (str "creating new buffer "(new-buffer channel))}))))
+                (send! channel (json/write-str {:buffer (new-buffer channel)}))))
               (if (:save buff) (send! channel (json/write-str {:console "saving buffer"})))
               (if (:kill buff) (send! channel (json/write-str {:console "killing buffer"})))
               (if (:list buff) (send! channel (json/write-str {:console (str "buffer list: " (keys @buffers))})))
@@ -64,8 +64,9 @@
           ;(if-let [f (:file req)]
            ; (if (:list f) )
 
-          (if (:repl req) (send! channel  (json/write-str {:repl (vec (or  
-            (map json/write-str (filter :value (nrepl-buffer (:repl req)))) "nil"))})))
+          (if-let [repl-req (:repl req)] (send! channel  (json/write-str {:repl (vec (or  
+            (map json/write-str(filter :value (nrepl-buffer (:eval repl-req) (:nrepl((keyword(:buffer repl-req))@buffers)) )))
+            "nil"))})))
 
           (if (:completions req) (send! channel  (json/write-str {:completions (or  
             (try (let [c (vec (completions (:completions req)))] (if-not (empty? c) c "nil"))
