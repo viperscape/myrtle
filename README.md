@@ -2,9 +2,9 @@
 
 A Clojure IDE using your browser (ace editor) and websockets to communicate with nrepl and evaluate code.
 Includes other software such as:
-	* hot-loading dependencies using 'alembic - github.com/pallet/alembic
-	* code-completion suggestions with 'clojure-complete - github.com/ninjudd/clojure-complete
-	* 'ace editor, web-based customizable code editor - github.com/ajaxorg/ace-builds/
+	* hot-loading dependencies using ['alembic][1]
+	* code-completion suggestions with ['clojure-complete][2]
+	* ['ace editor][3], web-based customizable code editor
 	* javascript front-end (json and websockets) for communication with myrtle back-end
 	* back-end runs on http-kit, ring+compojure
 
@@ -13,6 +13,9 @@ Features include:
 	* console displaying nrepl results and all websocket communication
 	* remote evaluation of code
 
+[1]: https://github.com/pallet/alembic
+[2]: https://github.com/ninjudd/clojure-complete
+[3]: https://github.com/ajaxorg/ace-builds
 
 ## prereqs
 
