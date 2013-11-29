@@ -26,8 +26,8 @@ You will need [Leiningen][99] 2.0+ or above installed.
 
 ## getting things working
 
-Currently myrtle must be included in the project, soon will be standalone with project jack-in ability
-Must download ace editor build-source ('noconflict) and place in public folder.
+* Currently myrtle must be included in the project, soon will be standalone with project jack-in ability
+* Must download ace editor build-source ('noconflict) and place in public folder.
 
 
 
