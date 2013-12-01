@@ -20,13 +20,10 @@
 (defn repl-buffer [b]
    (load-string b))
 
-(defn nrepl-buffer [b conn]
-  ;(try
-   ; (with-open [conn (nrepl/connect :port 7888)]
-     (-> (nrepl/client conn 1000)
-       (nrepl/message {:op :eval :code b})
+(defn nrepl-buffer [e b]
+     (-> (:nrepl b)
+       (nrepl/message {:op :eval :code e :session (:nrepl-id b)})
        doall))
-    ;(catch Exception e (.getMessage e))))
 
 (defn get-buffer [bid]
   (let [b (bid @buffers)]
@@ -34,20 +31,22 @@
   ))
 
 (defn new-buffer [ch]
-  (let [bid (keyword (gensym "buff"))]
-   (dosync (alter buffers conj {bid {:ch ch, :nrepl (nrepl/connect :port 7888)}}))
+  (let [bid (keyword (gensym "buff"))
+        ncli (nrepl/client (nrepl/connect :port 7888) 1000)
+        nid (nrepl/new-session ncli)]
+   (dosync (alter buffers conj {bid {:ch ch, :nrepl ncli :nrepl-id nid}}))
    bid))
 
 
 (defn async-handler [request]
   (println "connection from " (:remote-addr request))
- (if (or (= "192.168.2.5" (:remote-addr request)) (= "127.0.0.1" (:remote-addr request)))
+ (if (or (.contains "192.168.2" (:remote-addr request)) (= "127.0.0.1" (:remote-addr request)))
   (try (with-channel request channel
-  	(on-close channel (fn [status] (println "channel closed: " status)))
+  	   (on-close channel (fn [status] (println channel " channel closed: " status)))
     (if (websocket? channel)
     	(on-receive channel (fn [data] 
         (let [req (json/read-str data :key-fn keyword)]
-          (prn "in-channel data: " req)
+          (prn channel " in-channel data: " req)
 
           (if-let [buff (:buffer req)]
             (do ;;it'd be nice to do this in a case block instead
@@ -65,7 +64,8 @@
            ; (if (:list f) )
 
           (if-let [repl-req (:repl req)] (send! channel  (json/write-str {:repl (vec (or  
-            (map json/write-str(filter :value (nrepl-buffer (:eval repl-req) (:nrepl((keyword(:buffer repl-req))@buffers)) )))
+            (map json/write-str(filter :value 
+              (nrepl-buffer (:eval repl-req) ((keyword(:buffer repl-req))@buffers))));(:nrepl((keyword(:buffer repl-req))@buffers)) )));nch)));
             "nil"))})))
 
           (if (:completions req) (send! channel  (json/write-str {:completions (or  
