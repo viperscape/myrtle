@@ -6,11 +6,11 @@
   <title>Buffer</title>
   <style type="text/css" media="screen">
     body {
-        /*overflow: hidden;*/
         background-color: #000;
     }
+
     #editor { 
-        
+        overflow-y:hidden;
         position:fixed;
         width:100%;
         left:0;
@@ -25,7 +25,8 @@
         height:67%;
     }
 
-    #console{
+    #console,#repl{
+      overflow:hidden;
       background: #000;
       height: 28%;
       width: 100%;
@@ -33,7 +34,33 @@
       position: fixed;
       bottom:0;
       color:#333;
+      z-index: 0;
     }
+    #repl{z-index: 1;}
+
+    #top-buttons {position:fixed;top:0px;left:2px;}
+    #bwrap {border-style:inset;background-color:#666;}
+    #beval {}
+
+    #bfiles {position:fixed;right:2px;top:0px;}
+    #files {
+      overflow-y:scroll;
+      background: #333;
+      height: 67%;
+      width: 52%;
+      right:2px;
+      position: fixed;
+      color:#111;
+      z-index: 99;
+      display:none;
+      top:5%;
+    }
+    #files a:link{text-decoration:none;color:#999;}
+    #files a:visited{text-decoration:none;color:#999;}
+
+    #bot-buttons{position:fixed;bottom:0px;left:2px;z-index: 99;}
+    #bswap{position:fixed;bottom:0px;right:2px;}
+
 
     #completions{
       background:#333;
@@ -47,7 +74,13 @@
       z-index: 99;
     }
 
+    #completions a:link{text-decoration:none;color:#999;}
+    #completions a:visited{text-decoration:none;color:#999;}
+
     .ace_scrollbar {
+    display: none !important;
+    }
+    .ace_sb {
     display: none !important;
     }
   </style>
@@ -74,9 +107,10 @@ function toggleWrap(){
   editor.getSession().setUseWrapMode(wrap);
 }
 </script>
-
-<input type="button" id="bwrap" value="wrap" onmousedown="toggleWrap();" style="border-style:inset;background-color:#666;" />
-<input type="button" id="beval" value="eval" onmousedown="evalRepl(editor);" style="" />
+<div id="top-buttons">
+<input type="button" id="bwrap" value="wrap" onmousedown="toggleWrap();"/>
+<input type="button" id="beval" value="eval" onmousedown="evalRepl(editor);"/>
+<input type="button" id="bfiles" value="files" onmousedown="toggleFiles();"/></div>
 
 <div id="editor" onkeydown="document.getElementById('completions').style.display = 'none';"><!--editor for code--></div>
 <div id="completions"></div>
@@ -99,6 +133,11 @@ function toggleWrap(){
 
 function updateConsole (txt){
   console.insert(txt+"\r\n");
+  //document.getElementById("console").innerHTML += "<br>"+txt;
+}
+
+function updateRepl (txt){
+  repl.insert(txt+"\r\n");
   //document.getElementById("console").innerHTML += "<br>"+txt;
 }
 
@@ -127,7 +166,7 @@ function evalRepl (buff) {
   var txt = buff.session.getTextRange(buff.getSelectionRange());
 //alert(emptyline(buff) + ";"+buff.getSelectionRange());
   if (txt){
-    updateConsole("=> "+txt);
+    updateRepl("=> "+txt);
     socket.send(JSON.stringify({"repl":{"eval":txt,"buffer":buffer}}));
   }
  }
@@ -142,8 +181,8 @@ function Complete(f){
 }
 
    
-    var jconsole = {"buffer": {"open": ""}}; //{"open": "buff5308"}};
-    var socket = new WebSocket("ws://localhost");
+    var jconsole = {buffer: {open: ""}, file: {list: ""}}; //{"open": "buff5308"}};
+    var socket = new WebSocket("ws://192.168.2.5:8080");
     socket.onopen = function(){
       updateConsole("@ws:"+JSON.stringify(jconsole));
       socket.send(JSON.stringify(jconsole));
@@ -155,7 +194,7 @@ function Complete(f){
         if (jd.repl){
           jd.repl.forEach(function(e){
             var n = JSON.parse(e);
-            updateConsole(n.ns + " > " + n.value);
+            updateRepl(n.ns + " > " + n.value);
           });
         }
         if (jd.console){
@@ -164,8 +203,33 @@ function Complete(f){
         if (jd.buffer){
           buffer = jd.buffer;
         }
-        if ((jd.completions) && (jd.completions != "nil")) {
-          updateConsole(" * "+jd.completions+" * ");
+        if (jd.file){
+          if (jd.file.list){
+            var farr = [];
+            jd.file.list.forEach(function(e){farr.push("<a href='#' onmousedown='file(\""+e+"\");'>"+e+"</a></br>")});
+
+            document.getElementById("files").innerHTML = farr;
+          }else if (jd.file.contents){
+	      document.getElementById("files").style.display = "none";
+	      editor.insert(jd.file.contents);
+	      switch (jd.file.extension){
+		  case ".htm":
+		  case ".html":editor.getSession().setMode("ace/mode/html");break;
+
+		  case ".css":editor.getSession().setMode("ace/mode/css");break;
+
+		  case ".js":editor.getSession().setMode("ace/mode/javascript");break;
+
+		  case ".clj":
+		  case ".cljs":editor.getSession().setMode("ace/mode/clojure");break;
+		  default:break;
+	      }
+	  }
+        }
+        if (jd.completions) {
+          if (jd.completions == "nil"){editor.indent();return;}
+
+          updateRepl(" * "+jd.completions+" * ");
           //editor.navigateWordLeft();
           var cx = editor.renderer.$cursorLayer.getPixelPosition().left + 60;
           var cy = editor.renderer.$cursorLayer.getPixelPosition().top + 30;
@@ -182,7 +246,7 @@ function Complete(f){
         if (jd.buff){alert(jd.buff);}
     }
     socket.onerror = function(e){
-      alert("error, connection lost");  
+      updateConsole("&ws:socket error");  
         }
 
 
@@ -198,6 +262,11 @@ editor.commands.addCommand({
     name: 'Completions',
     bindKey: {win: 'Tab',  mac: 'Tab'},
     exec: function (editor) {
+      if (document.getElementById("completions").style.display == 'inherit'){
+        editor.indent();
+        document.getElementById("completions").style.display = 'none';
+        return;}
+
       editor.selectMore(-1,true);
       var txt = editor.session.getTextRange(editor.getSelectionRange());
       editor.navigateWordRight(); //clear selection, move cursor back
@@ -210,15 +279,47 @@ editor.commands.addCommand({
 
 </script>
 
-
-<div id="console"><!--console for printed repl--></div>
+<div id="files"><!--for showing files--></div>
 <script>
+function toggleFiles(){
+  if (document.getElementById("files").style.display == 'inherit') {
+    document.getElementById("bfiles").style.backgroundColor = "#FCFCFC";
+    document.getElementById("bfiles").style.borderStyle = "outset";
+    document.getElementById("files").style.display = 'none';
+  }else {
+    document.getElementById("bfiles").style.backgroundColor = "#666";
+    document.getElementById("bfiles").style.borderStyle = "inset";
+    document.getElementById("files").style.display = 'inherit';
+  }
+}
+function file(f){
+  var req = {file: {list: f, buffer: buffer}};
+  updateConsole("@ws:"+JSON.stringify(req));
+  socket.send(JSON.stringify(req));
+}
+</script>
+
+
+
+
+<div id="repl"><!--for printed repl--></div>
+<div id="console"><!--for printed console--></div>
+<script>
+    var repl = ace.edit("repl");
+    repl.setTheme("ace/theme/monokai");
+    repl.setFontSize("14px");
+    repl.setShowPrintMargin(false);
+    repl.renderer.setShowGutter(false);
+    repl.getSession().setMode("ace/mode/clojure");
+    repl.getSession().setUseWrapMode(true);
+    repl.setReadOnly(true); 
+
     var console = ace.edit("console");
     console.setTheme("ace/theme/monokai");
     console.setFontSize("14px");
     console.setShowPrintMargin(false);
     console.renderer.setShowGutter(false);
-    console.getSession().setMode("ace/mode/clojure");
+    console.getSession().setMode("ace/mode/json");
     console.getSession().setUseWrapMode(true);
     console.setReadOnly(true); 
 
@@ -229,5 +330,22 @@ editor.commands.addCommand({
     completions.setReadOnly(true); */
 </script>
 
+<script>
+/*I hide and show the repl and console via z-index and overlaying them,
+otherwise I must refresh the hidden div somehow after being updated*/
+function swapConsole(){ 
+  if (document.getElementById("console").style.zIndex == 0){
+  document.getElementById("console").style.zIndex = 1;
+  document.getElementById("repl").style.zIndex = 0;
+  document.getElementById("swapcon").value="console";
+  }
+  else {  
+  document.getElementById("console").style.zIndex = 0;
+  document.getElementById("repl").style.zIndex = 1;
+  document.getElementById("swapcon").value="repl";
+  } 
+}
+</script>
+<div id="bot-buttons"><input type="button" id="bswap" value="repl" onmousedown="swapConsole();"/></div>
 </body>
 </html>
