@@ -8,7 +8,7 @@
                  [ring "1.2.1"]
                  [org.clojure/data.json "0.2.3"]
                  [org.clojure/tools.nrepl "0.2.3"]
-                 [clojure-complete "0.2.3"]]
+                 [clojure-complete "0.2.3"][me.raynes/fs "1.4.5"]]
   ;:plugins [[lein-ring "0.8.8"]]
   :ring {:handler myrtle.handler/app}
   :main myrtle.handler)
